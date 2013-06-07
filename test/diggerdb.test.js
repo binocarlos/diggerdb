@@ -22,7 +22,7 @@ describe('diggerdb', function(){
 		})
 		
 		db.settings.attr('hostname').should.equal('127.0.0.1');
-		db.settings.attr('port').should.equal('27017');
+		db.settings.attr('port').should.equal(27017);
 
 		done();
 		
@@ -30,7 +30,7 @@ describe('diggerdb', function(){
 
 	it('should insert test data', function(done){
 		
-		var data = require(__dirname + '/fixtures/cities.json');
+		var data = require(__dirname + '/fixtures/data').simplexml;
 		var datac = digger.container(data);
 
 		var db = diggerdb({
@@ -39,10 +39,10 @@ describe('diggerdb', function(){
 
 		var container = digger.supplychain(db);
 
-		container.append(datac).ship(function(){
-			
-		})
-		
+		container('product.onsale[price<100]')
+			.ship(function(results){
+				console.dir(results.toJSON());
+			})
 	})
 
 

@@ -15,7 +15,8 @@
     "digger.io": "*",
     "mongodb": "*",
     "async": "*",
-    "lodash": "~1.2.1"
+    "lodash": "~1.2.1",
+    "bigint": "~0.4.2"
   },
   "devDependencies": {
     "grunt": "~0.4.1",

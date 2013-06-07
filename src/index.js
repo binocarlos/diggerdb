@@ -18,10 +18,16 @@
 
 var _ = require('lodash');
 var async = require('async');
-var digger = require('digger.io');
+
 var mongodb = require('mongodb');
+var digger = require('digger.io');
 
 module.exports = factory;
+
+var Select = require('./select');
+var Append = require('./append');
+var Save = require('./save');
+var Remove = require('./remove');
 
 /*
 
@@ -71,7 +77,36 @@ function factory(options){
   supplier.prepare(function(finished){
     get_mongo_client(options, function(error, client){
       if (error) throw error;
-      supplier.collection = new mongodb.Collection(client, options.collection);
+
+      var collection = supplier.collection = new mongodb.Collection(client, options.collection);
+
+      /*
+      
+        this needs to be better
+        
+      */
+      collection.mapreduce = function(map_reduce_options, callback){
+
+        map_reduce_options = _.extend({}, map_reduce_options);
+
+        var mapReduce = {
+          mapreduce: options.collection, 
+          out:  { inline : 1 },
+          query: map_reduce_options.query,
+          map: map_reduce_options.map ? map_reduce_options.map.toString() : null,
+          reduce: map_reduce_options.reduce ? map_reduce_options.reduce.toString() : null,
+          finalize: map_reduce_options.finalize ? map_reduce_options.finalize.toString() : null
+        }
+
+        client.executeDbCommand(mapReduce, function(err, dbres) {
+
+          var results = dbres.documents[0].results
+
+          callback(err, results);
+        })
+      }
+      
+      buildsupplier(supplier.collection);
       finished();
     })
   })
@@ -80,130 +115,12 @@ function factory(options){
   var port = supplier.settings.attr('port');
   var reset = supplier.settings.attr('reset');
 
-  function buildsupplier(){
+  function buildsupplier(collection){
 
-    /*
-    
-
-      ----------------------------------------------
-      SELECT
-      ----------------------------------------------
-      
-    */
-    supplier.select(function(select_query, promise){
-
-      
-
-      //promise.resolve(results.toJSON());
-    })
-
-    /*
-    
-      ----------------------------------------------
-      APPEND
-      ----------------------------------------------
-      
-    */
-    supplier.append(function(append_query, promise){
-
-      console.log('-------------------------------------------');
-      console.dir(append_query);
-      process.exit();
-/*
-      var append_to = append_query.target ? rootcontainer.spawn(append_query.target) : rootcontainer;
-      var append_what = rootcontainer.spawn(append_query.body);
-
-      if(!append_query.target){
-       
-        append_what.inject_paths([append_what.get_next_child_path_index()]);
-      }
-      else{
-
-        var append_count = append_to.digger('append_count') || 0;
-
-        append_what.inject_paths(([]).concat(append_to.diggerpath(), [append_count]))
-        append_count++;
-
-        append_to.digger('append_count', append_count);
-      }
-
-      append_what.diggerparentid(append_to.diggerid());
-      append_to.append(append_what);
-
-      supplier.savefile(function(error){
-        if(error){
-          promise.reject(error);
-        }
-        else{
-          promise.resolve(append_what.toJSON());  
-        }
-      })
-*/
-    })
-
-    /*
-    
-      ----------------------------------------------
-      SAVE
-      ----------------------------------------------
-      
-    */
-
-    supplier.save(function(save_query, promise){
-
-/*
-      var data = save_query.body;
-
-      _.each(data, function(val, key){
-        save_query.target[key] = data[key];
-      })
-
-      supplier.savefile(function(error){
-        if(error){
-          promise.reject(error);
-        }
-        else{
-          promise.resolve(data);  
-        }
-      })
-*/
-
-    })
-
-    /*
-    
-      ----------------------------------------------
-      REMOVE
-      ----------------------------------------------
-      
-    */
-
-    supplier.remove(function(remove_query, promise){
-
-/*
-      var target = rootcontainer.spawn(remove_query.target);
-      var parent = rootcontainer;
-
-      if(target.diggerparentid()){
-        parent = rootcontainer.find('=' + target.diggerparentid());
-      }
-
-      parent.get(0)._children = _.filter(parent.get(0)._children, function(model){
-        return model._digger.diggerid!=target.diggerid();
-      })
-
-      supplier.savefile(function(error){
-        if(error){
-          promise.reject(error);
-        }
-        else{
-          promise.resolve();  
-        }
-      })
-
-*/
-
-    })
+    supplier.select(Select(collection));
+    supplier.append(Append(collection));
+    supplier.save(Save(collection));
+    supplier.remove(Remove(collection));
 
   }
 
