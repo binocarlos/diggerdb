@@ -18,142 +18,120 @@
 
 var _ = require('lodash'),
     async = require('async'),
-    bigint = require('bigint');
+    tools = require('./tools');
 
-// get the next available position index for this container
-function getNextRootPosition(collection, callback){
-  var options = {
-    query:{
-      '_digger.diggerparentid':null
-    },
-    map:function(){
-      emit('position', this._digger.rootposition);
-    },
-    reduce:function(k,v){
-      var max = 0;
-      v.forEach(function(vv){
-        max = vv>max ? vv : max;
-      })
-      return max;
-    }
-  }
 
-  /*
-  
-    a total hack when we are in dev mode it dosn't like 2 at the same time
-    
-  */
-  setTimeout(function(){
-    collection.mapreduce(options, function(error, results){
-    
-      var result = results && results.length>0 ? results[0] : {
-        value:0
+module.exports = function append(collection_factory){
+
+  return function(append_query, promise){
+    var self = this;
+
+    collection_factory(append_query.req, function(error, collection){
+
+      function assignTreeEncodings(diggerdata){
+
+        var encodings = self.encode(diggerdata.diggerpath);
+          
+        //diggerdata.left_encodings = encodings.left;
+        //diggerdata.right_encodings = encodings.right;
+
+        diggerdata.left = tools.getEncodingValue(encodings.left.numerator, encodings.left.denominator);
+        diggerdata.right = tools.getEncodingValue(encodings.right.numerator, encodings.right.denominator);
       }
 
-      callback(error, result.value + 1);
-    })  
-  }, Math.round(Math.random()*20))
-}
 
-function getPaddedNumber(num){
+      // assigns the links needed to add one container to another - recursivly down the tree
+      function cascadeInsert(collection, data, parent_data, finishedcallback){
 
-  return '' + num + '00000000000000000000000000000000';
-  
-}
+        data._id = data._digger.diggerid;
 
-function getEncodingValue(top, bottom){
-
-  var fixedLength = 36;
-
-  top = bigint(getPaddedNumber(top));
-  bottom = bigint(bottom);
-
-  var answer = top.div(bottom).toString();
-
-  while(answer.length<fixedLength){
-    answer = '0' + answer;
-  }
-
-  return answer;
-}
-
-
-
-module.exports = function append(mongoclient){
-  return function(append_query, promise){
-  	var self = this;
-
-  	function assignTreeEncodings(data){
-
-      var encodings = self.encode(data.diggerpath);
+        /*
         
-      meta.left_encodings = encodings.left;
-      meta.right_encodings = encodings.right;
+          this means we are appending to the top of the database
+          
+        */
+        if(!parent_data){
 
-      meta.left = getEncodingValue(encodings.left.numerator, encodings.left.denominator);
-      meta.right = getEncodingValue(encodings.right.numerator, encodings.right.denominator);
-    }
+          tools.getNextRootPosition(collection, function(error, next_root_position){
+
+            data._digger.diggerpath = [next_root_position];
+            data._digger.rootposition = next_root_position;
+
+            assignTreeEncodings(data._digger);
+
+            tools.insertContainer(collection, data, function(error){
+
+              async.forEach(data._children || [], function(child_data, next_child){
+                
+                cascadeInsert(collection, child_data, data, next_child);
+                
+              }, function(error){
+
+                finishedcallback(error, data);
+              })
+
+            })
 
 
-    // assigns the links needed to add one container to another - recursivly down the tree
-    function cascadeInsert(collection, data, parent_data, finishedcallback){
+          })
+        }
+        else{
 
-      data._id = data._digger.diggerid;
-
-      /*
-      
-        this means we are appending to the top of the database
-        
-      */
-      if(!parent_data){
-
-        getNextRootPosition(collection, function(error, next_root_position){
-
-          data._digger.diggerpath = [next_root_position];
-          data._digger.rootposition = next_root_position;
+          parent_data._digger.next_child_position = parent_data._digger.next_child_position || 0;
+          parent_data._digger.next_child_position++;
+          
+          data._digger.diggerpath = parent_data._digger.diggerpath.concat([parent_data._digger.next_child_position]);
+          data._digger.diggerparentid = parent_data._digger.diggerid;
 
           assignTreeEncodings(data._digger);
 
-          insertContainer(collection, data, function(error){
+          tools.updateContainer(collection, parent_data, function(){
 
-            async.forEach(data._children || [], function(child_data, next_child){
-              
-              cascadeInsert(collection, child_data, data, next_child);
-              
-            }, function(error){
+            tools.insertContainer(collection, data, function(){
 
-              finishedcallback(error, data);
+              async.forEach(data._children || [], function(child_data, next_child){
+                cascadeInsert(collection, child_data, data, next_child);
+              }, function(error){
+
+                finishedcallback(error, data);
+              })
+
             })
-
           })
-
-
-        })
+        }
       }
-      else{
 
-        parent_data._digger.next_child_position || (parent_data._digger.next_child_position = 0);
-        parent_data._digger.next_child_position++;
+      var parent_data = append_query.target;
+      var results = [];
+
+      /*
+      
+        run through each of the appending containers and insert them into the DB
         
-        data._digger.diggerpath = parent_data._digger.diggerpath.concat([parent_data._digger.next_child_position]);
-        data.meta.parent_id = parent_data.meta.quarryid;
+      */
+      async.forEachSeries(append_query.body || [], function(data, next_data){
 
-        assignTreeEncodings(data.meta);
+        cascadeInsert(collection, data, parent_data, function(error){
 
-        updateContainer(mongoclient, parent_data, function(){
+          if(!error){
+            results = results.concat(data);  
+          }
 
-          insertContainer(mongoclient, data, function(){
+          next_data(error);
 
-            async.forEach(data.children || [], function(child_data, next_child){
-              cascadeInsert(mongoclient, child_data, data, next_child);
-            }, function(error){
-
-              finishedcallback(error, data);
-            })
-
-          })
         })
-      }
-    }
+
+      }, function(error){
+
+
+        if(error){
+          promise.reject(error);
+        }
+        else{
+          promise.resolve(results);
+        }
+        
+      })
+    })
   }
 }

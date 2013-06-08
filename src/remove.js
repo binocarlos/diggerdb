@@ -17,11 +17,23 @@
 */
 
 var _ = require('lodash'),
-    async = require('async');
+    async = require('async'),
+    tools = require('./tools');
 
 
-module.exports = function remove(mongoclient){
+module.exports = function remove(collection_factory){
   return function(remove_query, promise){
+		collection_factory(remove_query.req, function(error, collection){
+			var target = remove_query.target;
 
+			tools.removeContainer(collection, target, function(error){
+				if(error){
+					promise.reject(error);
+				}
+				else{
+					promise.resolve(target);
+				}
+			})
+		})
   }
 }

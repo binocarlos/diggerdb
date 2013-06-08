@@ -17,11 +17,25 @@
 */
 
 var _ = require('lodash'),
-    async = require('async');
+    async = require('async'),
+    tools = require('./tools');
 
 
-module.exports = function save(mongoclient){
+module.exports = function save(collection_factory){
   return function(save_query, promise){
 
+		collection_factory(save_query.req, function(error, collection){
+			var target = save_query.target;
+			var body = save_query.body;
+
+			tools.updateContainer(collection, body, function(error){
+				if(error){
+					promise.reject(error);
+				}
+				else{
+					promise.resolve(body);
+				}
+			})
+		})
   }
 }

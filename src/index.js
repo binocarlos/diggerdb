@@ -35,95 +35,153 @@ var Remove = require('./remove');
   and spawn a collection from it each time
   
 */
-var clients = {};
-function get_mongo_client(details, callback){
-  var existing = clients[details.hostname + ':' + details.port];
+var servers = {};
+var databases = {};
+var collections = {};
 
-  if(existing){
-    callback(null, existing);
+function get_mongo_server(details, callback){
+  var server = servers[details.hostname + ':' + details.port];
+
+  if(server){
+    callback(null, server);
     return;
   }
 
-  var server = new mongodb.Server(details.hostname, details.port, {});
-  new mongodb.Db(details.database, server, {w: 1}).open(function(error, client){
-    if(!error){
-      clients[details.hostname + ':' + details.port] = client;  
+  server = new mongodb.Server(details.hostname, details.port, {});
+  servers[details.hostname + ':' + details.port] = server;
+  callback(null, server);
+}
+
+function get_mongo_database(details, callback){
+
+  var database = databases[details.hostname + ':' + details.port + ':' + details.database];
+
+  if(database){
+    callback(null, database);
+    return;
+  }
+
+  get_mongo_server(details, function(error, server){
+    if(error){
+      throw new Error(error);
     }
-    callback(error, client);
-  });
+
+    new mongodb.Db(details.database, server, {w: 1}).open(function(error, database){
+      if(error){
+        throw new Error(error);
+      }
+      
+      databases[details.hostname + ':' + details.port + ':' + details.database] = database;  
+      callback(error, database);
+    });
+  })
+}
+
+function get_mongo_collection(details, callback){
+  var collection = collections[details.hostname + ':' + details.port + ':' + details.database + ':' + details.collection];
+
+  if(collection && !details.reset){
+    callback(null, collection);
+    return;
+  }
+
+  get_mongo_database(details, function(error, database){
+
+    var collection = new mongodb.Collection(database, details.collection);
+
+    /*
+    
+      this needs to be better
+      
+    */
+    collection.mapreduce = function(map_reduce_options, map_reduce_callback){
+
+      map_reduce_options = _.extend({}, map_reduce_options);
+
+      var mapReduce = {
+        mapreduce: details.collection, 
+        out:  { inline : 1 },
+        query: map_reduce_options.query,
+        map: map_reduce_options.map ? map_reduce_options.map.toString() : null,
+        reduce: map_reduce_options.reduce ? map_reduce_options.reduce.toString() : null,
+        finalize: map_reduce_options.finalize ? map_reduce_options.finalize.toString() : null
+      }
+
+      database.executeDbCommand(mapReduce, function(err, dbres) {
+
+        var results = dbres.documents[0].results
+
+        map_reduce_callback(err, results);
+      })
+    }
+
+    collections[details.hostname + ':' + details.port + ':' + details.database + ':' + details.collection] = collection;
+
+    if(details.reset){
+      details.reset = false;
+      collection.drop(function(){
+        callback(null, collection);
+      })
+    }
+    else{
+      callback(null, collection);  
+    }
+    
+  })
 }
 
 function factory(options){
-  
+
   options = _.defaults(options, {
     hostname:'127.0.0.1',
     port:27017,
     database:'digger',
+    collection:'test',
     reset:false
   })
-
+  
   var supplier = digger.suppliers.nestedset(options);
 
-  if(!supplier.settings.attr('collection')){
-    throw new Error('collection required for diggerdb');
+  var routes = [];
+  if(options.provider==='database'){
+    routes = ['database', 'collection'];
+  }
+  else if(options.provider==='collection'){
+    routes = ['collection'];
   }
 
-
-  /*
+  if(routes.length>0){
+    supplier.provision(routes, function(routes, callback){
+      callback();
+    })  
+  }
   
-    PREPARE CONNECTION
-    
-  */
-  supplier.prepare(function(finished){
-    get_mongo_client(options, function(error, client){
-      if (error) throw error;
-
-      var collection = supplier.collection = new mongodb.Collection(client, options.collection);
-
-      /*
-      
-        this needs to be better
-        
-      */
-      collection.mapreduce = function(map_reduce_options, callback){
-
-        map_reduce_options = _.extend({}, map_reduce_options);
-
-        var mapReduce = {
-          mapreduce: options.collection, 
-          out:  { inline : 1 },
-          query: map_reduce_options.query,
-          map: map_reduce_options.map ? map_reduce_options.map.toString() : null,
-          reduce: map_reduce_options.reduce ? map_reduce_options.reduce.toString() : null,
-          finalize: map_reduce_options.finalize ? map_reduce_options.finalize.toString() : null
-        }
-
-        client.executeDbCommand(mapReduce, function(err, dbres) {
-
-          var results = dbres.documents[0].results
-
-          callback(err, results);
-        })
-      }
-      
-      buildsupplier(supplier.collection);
-      finished();
-    })
-  })
 
   var hostname = supplier.settings.attr('hostname');
   var port = supplier.settings.attr('port');
   var reset = supplier.settings.attr('reset');
 
-  function buildsupplier(collection){
+  function collection_factory(req, callback){
 
-    supplier.select(Select(collection));
-    supplier.append(Append(collection));
-    supplier.save(Save(collection));
-    supplier.remove(Remove(collection));
+    var useoptions = _.clone(options);
+
+    if(req.getHeader('x-json-resource')){
+      useoptions = _.extend(useoptions, req.getHeader('x-json-resource'));
+    }
+
+    get_mongo_collection(useoptions, function(error, collection){
+      if(options.reset){
+        options.reset = false;
+      }
+      callback(error, collection);
+    });
 
   }
-
+  
+  supplier.select(Select(collection_factory));
+  supplier.append(Append(collection_factory));
+  supplier.save(Save(collection_factory));
+  supplier.remove(Remove(collection_factory));
 
   return supplier;
 }

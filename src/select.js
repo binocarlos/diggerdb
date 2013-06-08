@@ -58,28 +58,28 @@ var operator_functions = {
   ">":function(query){
     var ret = {};
     ret[query.field] = {
-      '$gt':parseFloat(query.value)
+      '$gt':query.field==='_digger.left' ? query.value : parseFloat(query.value)
     }
     return ret;
   },
   ">=":function(query){
     var ret = {};
     ret[query.field] = {
-      '$gte':parseFloat(query.value)
+      '$gte':query.field==='_digger.left' ? query.value : parseFloat(query.value)
     }
     return ret;
   },
   "<":function(query){
     var ret = {};
     ret[query.field] = {
-      '$lt':parseFloat(query.value)
+      '$lt':query.field==='_digger.right' ? query.value : parseFloat(query.value)
     }
     return ret;
   },
   "<=":function(query){
     var ret = {};
     ret[query.field] = {
-      '$lte':parseFloat(query.value)
+      '$lte':query.field==='_digger.right' ? query.value : parseFloat(query.value)
     }
     return ret;
   },
@@ -122,7 +122,7 @@ function extractskeleton(model){
   return model._digger;
 }
 
-module.exports = function select(colletion){
+module.exports = function select(collection_factory){
 
   return function(select_query, promise){
 
@@ -133,105 +133,108 @@ module.exports = function select(colletion){
     */
     var self = this;
 
-    /*
-    
-      filter out the bad operators then map the search into Mongo style
+    collection_factory(select_query.req, function(error, collection){
+
+
+      /*
       
-    */
-    var search_terms = _.map(_.filter(select_query.query.search, filterterm), processterm);
-    var skeleton_terms = _.map(select_query.query.skeleton, processterm);
-    var selector = select_query.selector;
-    var modifier = selector.modifier;
+        filter out the bad operators then map the search into Mongo style
+        
+      */
+      var search_terms = _.map(_.filter(select_query.query.search, filterterm), processterm);
+      var skeleton_terms = _.map(select_query.query.skeleton, processterm);
+      var selector = select_query.selector;
+      var modifier = selector.modifier;
 
-    var includedata = selector.modifier.laststep;
-    var includechildren = includedata && selector.modifier.tree;
+      var includedata = selector.modifier.laststep;
+      var includechildren = includedata && selector.modifier.tree;
 
-    if(search_terms.length<=0){
-      promise.resolve([]);
-      return;
-    }
-
-    if(skeleton_terms.length>0){
-      search_terms.push({
-        '$or':skeleton_terms
-      })
-    }
-
-    var query = {
-      '$and':search_terms
-    }
-
-    var options = {};
-
-    if(modifier.limit){
-      options.limit = modifier.limit;
-    }
-
-    if(modifier.first){
-      options.limit = 1;
-    }
-
-    var fields = includedata ? null : {
-      "meta":true
-    }
-  
-    var cursor = collection.find(query, fields, options);
-
-    cursor.toArray(function(error, results){
-      if(error){
-        promise.reject(error);
+      if(search_terms.length<=0){
+        promise.resolve([]);
         return;
       }
 
-      // here are the final results
-      // check for a tree query to load all descendents also
-      if(includechildren && results.length>0){
-
-        // first lets map the results we have by id
-        var results_map = {};
-
-        _.each(results, function(result){
-          results_map[result._digger.diggerid] = result;
-        })
-
-        // now build a descendent query based on the results
-        var descendent_tree_query = self.generate_tree_query('', _.map(results, extractskeleton));
-
-        var descendent_query = {
-          '$or':descendent_tree_query
-        }
-        
-        var child_cursor = collection.find(descendent_query, null, {});
-
-        child_cursor.toArray(function(error, descendent_results){
-
-          if(error){
-            promise.reject(error);
-            return;
-          }
-
-          // loop each result and it's links to see if we have a parent in the original results
-          // or in these results
-          _.each(descendent_results, function(descendent_result){
-            results_map[descendent_result._digger.diggerid] = descendent_result;
-          })
-
-          _.each(descendent_results, function(descendent_result){
-            var parent = results_map[descendent_result._digger.diggerid];
-
-            if(parent){
-              parent._children || (parent._children = []);
-              parent._children.push(descendent_result);
-            }
-          })
-
-          res.resolve(results);
+      if(skeleton_terms.length>0){
+        search_terms.push({
+          '$or':skeleton_terms
         })
       }
-      else{
-        res.resolve(results);
-      }      
-    })
 
+      var query = search_terms.length>1 ? {
+        '$and':search_terms
+      } : search_terms[0]
+
+      var options = {};
+
+      if(modifier.limit){
+        options.limit = modifier.limit;
+      }
+
+      if(modifier.first){
+        options.limit = 1;
+      }
+
+      var fields = includedata ? null : {
+        "meta":true
+      }
+    
+      var cursor = collection.find(query, fields, options);
+
+      cursor.toArray(function(error, results){
+        if(error){
+          promise.reject(error);
+          return;
+        }
+
+        // here are the final results
+        // check for a tree query to load all descendents also
+        if(includechildren && results.length>0){
+
+          // first lets map the results we have by id
+          var results_map = {};
+
+          _.each(results, function(result){
+            results_map[result._digger.diggerid] = result;
+          })
+
+          // now build a descendent query based on the results
+          var descendent_tree_query = self.generate_tree_query('', _.map(results, extractskeleton));
+
+          var descendent_query = {
+            '$or':descendent_tree_query
+          }
+          
+          var child_cursor = collection.find(descendent_query, null, {});
+
+          child_cursor.toArray(function(error, descendent_results){
+
+            if(error){
+              promise.reject(error);
+              return;
+            }
+
+            // loop each result and it's links to see if we have a parent in the original results
+            // or in these results
+            _.each(descendent_results, function(descendent_result){
+              results_map[descendent_result._digger.diggerid] = descendent_result;
+            })
+
+            _.each(descendent_results, function(descendent_result){
+              var parent = results_map[descendent_result._digger.diggerid];
+
+              if(parent){
+                parent._children = parent._children || [];
+                parent._children.push(descendent_result);
+              }
+            })
+
+            promise.resolve(results);
+          })
+        }
+        else{
+          promise.resolve(results);
+        }      
+      })
+    })
   }
 }

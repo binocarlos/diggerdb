@@ -28,21 +28,191 @@ describe('diggerdb', function(){
 		
 	})
 
-	it('should insert test data', function(done){
+	it('should reset the database with a reset option given', function(done){
+
+		this.timeout(1000);
+
+		var db = diggerdb({
+			collection:'test',
+			reset:true
+		})
+
+		var supplychain1 = digger.supplychain(db);
+
+		function getdata(){
+			var data = [{
+				name:'Red',
+				height:343
+			},{
+				name:'Blue',
+				height:346
+			},{
+				name:'Yellow',
+				height:8378
+			}]
+
+			var container = digger.create(data);
+			container.tag('color');
+
+			return container;
+		}
+
+		supplychain1.append(getdata()).ship(function(){
+
+			var db2 = diggerdb({
+				collection:'test',
+				reset:true
+			})
+
+			var supplychain2 = digger.supplychain(db2);
+
+			supplychain2.append(getdata()).ship(function(){
+
+				var db3 = diggerdb({
+					collection:'test'
+				})
+
+				var supplychain3 = digger.supplychain(db3);
+
+				supplychain3('color').ship(function(colors){
+					colors.count().should.equal(3);
+					colors.tag().should.equal('color');
+
+					supplychain2('dfdf').ship(function(){
+						done();	
+					})
+					
+
+				})
+			})
+
+
+		})
+
+		
+		
+	})
+
+	it('should insert and find test data', function(done){
 		
 		var data = require(__dirname + '/fixtures/data').simplexml;
 		var datac = digger.container(data);
 
 		var db = diggerdb({
-			collection:'test'
+			collection:'test',
+			reset:true
 		})
 
 		var container = digger.supplychain(db);
 
-		container('product.onsale[price<100]')
-			.ship(function(results){
-				console.dir(results.toJSON());
+		var simpleadd = digger.create('simple', {
+			name:'test',
+			height:34
+		})
+
+		container.append(simpleadd).ship(function(){
+			container('simple').ship(function(items){
+				items.count().should.equal(1);
+				items.tag().should.equal('simple');
+				items.attr('height').should.equal(34);
+				done();
 			})
+		})
+
+	})
+
+	it('should insert and find big test data', function(done){
+		
+		var data = require(__dirname + '/fixtures/data').citiesxml;
+		var datac = digger.container(data);
+
+		var db = diggerdb({
+			collection:'test',
+			reset:true
+		})
+
+		var container = digger.supplychain(db);
+
+		container.append(datac).ship(function(){
+
+			container('city.south').ship(function(cities){
+				cities.count().should.equal(3);
+				done();
+			})
+		})
+
+	})
+
+	it('should save', function(done){
+		
+		var data = require(__dirname + '/fixtures/data').citiesxml;
+		var datac = digger.container(data);
+
+		var db = diggerdb({
+			collection:'test',
+			reset:true
+		})
+
+		var container = digger.supplychain(db);
+
+		digger.pipe([
+			container.append(datac),
+
+			container('city.south'),
+
+			function(cities, next){
+
+				cities.count().should.equal(3);
+
+				cities.eq(0).attr('testme', 'hello').save().ship(function(){
+
+					container('city.south[testme=hello]').ship(function(cities){
+						
+						cities.count().should.equal(1);
+						done();
+					})
+				})
+				
+			}
+
+		])
+
+	})
+
+	it('should remove', function(done){
+		
+		var data = require(__dirname + '/fixtures/data').citiesxml;
+		var datac = digger.container(data);
+
+		var db = diggerdb({
+			collection:'test',
+			reset:true
+		})
+
+		var container = digger.supplychain(db);
+
+		digger.pipe([
+			container.append(datac),
+
+			container('city.south'),
+
+			function(cities, next){
+
+				cities.count().should.equal(3);
+
+				cities.eq(0).remove().ship(function(){
+
+					container('city.south').ship(function(cities){
+						
+						cities.count().should.equal(2);
+						done();
+					})
+				})
+				
+			}
+
+		])
+
 	})
 
 
