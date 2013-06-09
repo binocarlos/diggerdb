@@ -215,5 +215,70 @@ describe('diggerdb', function(){
 
 	})
 
+	it('should load from within an already loaded container and apply the limit', function(done){
+		
+		var data = require(__dirname + '/fixtures/data').citiesxml;
+		var datac = digger.container(data);
+
+		var db = diggerdb({
+			collection:'test',
+			reset:true
+		})
+
+		var container = digger.supplychain(db);
+
+		digger.pipe([
+			container.append(datac),
+
+			container('city.south'),
+
+			function(cities, next){
+
+				digger.merge([
+					cities('area.poor'),
+					container('city:limit(2)')
+				], function(error, results){
+					results[0].count().should.equal(3);
+					results[1].count().should.equal(2);
+					done();
+				})
+
+			}
+
+		])
+
+	})
+
+	it('should load children based on the tree modifier', function(done){
+		
+		var data = require(__dirname + '/fixtures/data').citiesxml;
+		var datac = digger.container(data);
+
+		var db = diggerdb({
+			collection:'test',
+			reset:true
+		})
+
+		var container = digger.supplychain(db);
+
+		digger.pipe([
+			container.append(datac),
+
+			container('city.south:tree'),
+
+			function(cities, next){
+
+				cities.count().should.equal(3);
+				cities.find('area').count().should.equal(8);
+
+
+
+				done();
+
+			}
+
+		])
+
+	})
 
 })

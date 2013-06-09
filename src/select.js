@@ -115,7 +115,15 @@ function filterterm(term){
 }
 
 function processterm(term){
-  return operator_functions[term.operator].apply(null, [term]);
+  if(_.isArray(term)){
+    return {
+      '$and':_.map(term, processterm)
+    }
+  }
+  else{
+    return operator_functions[term.operator].apply(null, [term]);  
+  }
+  
 }
 
 function extractskeleton(model){
@@ -175,7 +183,7 @@ module.exports = function select(collection_factory){
       }
 
       var fields = includedata ? null : {
-        "meta":true
+        "_digger":true
       }
     
       var cursor = collection.find(query, fields, options);
@@ -199,11 +207,12 @@ module.exports = function select(collection_factory){
 
           // now build a descendent query based on the results
           var descendent_tree_query = self.generate_tree_query('', _.map(results, extractskeleton));
+          descendent_tree_query = _.map(descendent_tree_query, processterm);
 
-          var descendent_query = {
-            '$or':descendent_tree_query
-          }
-          
+          var descendent_query = descendent_tree_query.length>1 ? 
+            {'$or':descendent_tree_query} :
+            {'$and':descendent_tree_query}
+
           var child_cursor = collection.find(descendent_query, null, {});
 
           child_cursor.toArray(function(error, descendent_results){
@@ -220,7 +229,7 @@ module.exports = function select(collection_factory){
             })
 
             _.each(descendent_results, function(descendent_result){
-              var parent = results_map[descendent_result._digger.diggerid];
+              var parent = results_map[descendent_result._digger.diggerparentid];
 
               if(parent){
                 parent._children = parent._children || [];
