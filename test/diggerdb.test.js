@@ -4,6 +4,7 @@ var diggerdb = require('../src');
 var data = require('./fixtures/data');
 var async = require('async');
 var fs = require('fs');
+var DB = require('../src/db');
 
 describe('diggerdb', function(){
 
@@ -274,6 +275,110 @@ describe('diggerdb', function(){
 
 
 				done();
+
+			}
+
+		])
+
+	})
+
+	it('should provision into a collection based on the path', function(done){
+		
+		var data = require(__dirname + '/fixtures/data').citiesxml;
+		var datac = digger.container(data);
+
+		var db = diggerdb({
+			provider:'collection',
+			url:'/mongo',
+			reset:true
+		})
+
+		var container = digger.supplychain('/mongo/testprovider', db);
+
+		digger.pipe([
+			container.append(datac),
+
+			container('city.south:tree'),
+
+			function(cities, next){
+
+				cities.count().should.equal(3);
+				cities.find('area').count().should.equal(8);
+
+				var details =  {
+					hostname:'127.0.0.1',
+					port:27017,
+					database:'digger',
+					collection:'testprovider',
+					reset:false
+				}
+
+				DB(details, function(error, collection){
+					var cursor = collection.find({
+						'$and':[{
+							'_digger.tag':'city'
+						},{
+							'_digger.class':'south'
+						}]
+					}, null, {})
+
+					cursor.toArray(function(error, docs){
+						docs.length.should.equal(3);
+						done();
+					})
+				})
+
+			}
+
+		])
+
+	})
+
+	it('should provision into a database and collection based on the path', function(done){
+		
+		var data = require(__dirname + '/fixtures/data').citiesxml;
+		var datac = digger.container(data);
+
+		var db = diggerdb({
+			provider:'database',
+			url:'/mongo',
+			reset:true
+		})
+
+		var container = digger.supplychain('/mongo/testdb/testprovider', db);
+
+		digger.pipe([
+			container.append(datac),
+
+			container('city.south:tree'),
+
+			function(cities, next){
+
+				cities.count().should.equal(3);
+				cities.find('area').count().should.equal(8);
+
+				var details =  {
+					hostname:'127.0.0.1',
+					port:27017,
+					database:'testdb',
+					collection:'testprovider',
+					reset:false
+				}
+
+				DB(details, function(error, collection){
+					var cursor = collection.find({
+						'$and':[{
+							'_digger.tag':'city'
+						},{
+							'_digger.class':'south'
+						}]
+					}, null, {})
+
+					cursor.toArray(function(error, docs){
+						docs.length.should.equal(3);
+						done();
+					})
+				})
 
 			}
 
