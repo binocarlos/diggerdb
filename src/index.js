@@ -24,11 +24,6 @@ var digger = require('digger.io');
 
 module.exports = factory;
 
-var Select = require('./select');
-var Append = require('./append');
-var Save = require('./save');
-var Remove = require('./remove');
-
 function factory(options){
 
   options = _.defaults(options, {
@@ -39,7 +34,7 @@ function factory(options){
     reset:false
   })
   
-  var supplier = digger.suppliers.nestedset(options);
+  var supplier = digger.suppliers.mongo(options);
 
   var routes = [];
   if(options.provider==='database'){
@@ -76,11 +71,116 @@ function factory(options){
     });
 
   }
+
+  // get the next available position index for this container
+  supplier._get_next_root_position = function(req, callback){
+    collection_factory(req, function(error, collection){
+      if(error || !collection){
+        callback(error || 'collection not found');
+        return;
+      }
+
+      var options = {
+        query:{
+          '_digger.diggerparentid':null
+        },
+        map:function(){
+          emit('position', this._digger.rootposition);
+        },
+        reduce:function(k,v){
+          var max = 0;
+          v.forEach(function(vv){
+            max = vv>max ? vv : max;
+          })
+          return max;
+        }
+      }
+
+      /*
+      
+        a total hack when we are in dev mode it dosn't like 2 at the same time
+        
+      */
+      setTimeout(function(){
+        collection.mapreduce(options, function(error, results){
+        
+          var result = results && results.length>0 ? results[0] : {
+            value:0
+          }
+
+          callback(error, result.value + 1);
+        })  
+      }, Math.round(Math.random()*20))
+    })
+  }
+
+  supplier._select = function(req, mongoquery, callback){
+    collection_factory(req, function(error, collection){
+      if(error || !collection){
+        callback(error || 'no collection found');
+        return;
+      }
+      var cursor = collection.find(mongoquery.query, mongoquery.fields, mongoquery.options);
+      cursor.toArray(callback);
+    })
+    
+  }
   
-  supplier.select(Select(collection_factory));
-  supplier.append(Append(collection_factory));
-  supplier.save(Save(collection_factory));
-  supplier.remove(Remove(collection_factory));
+  supplier._insert = function(req, data, callback){
+    collection_factory(req, function(error, collection){
+      if(error || !collection){
+        callback(error || 'no collection found');
+        return;
+      }
+      var raw = _.clone(data);
+      delete(raw._children);
+      delete(raw._data);
+
+      collection.insert(raw, {safe:true}, callback);
+    })
+    
+  }
+
+  supplier._update = function(req, data, callback){
+    collection_factory(req, function(error, collection){
+      if(error || !collection){
+        callback(error || 'no collection found');
+        return;
+      }
+      var raw = _.clone(data);
+      delete(raw._children);
+      delete(raw._data);
+
+      collection.update({
+        '_digger.diggerid':data._digger.diggerid
+      }, raw, {safe:true}, callback)
+    })
+    
+  }
+
+  supplier._remove = function(req, data, callback){
+    collection_factory(req, function(error, collection){
+      if(error || !collection){
+        callback(error || 'no collection found');
+        return;
+      }
+      collection.remove({
+        '$and':[
+          {
+            '_digger.left':{
+              '$gte':data._digger.left
+            }
+          },
+          {
+            '_digger.right':{
+              '$lte':data._digger.right
+            }
+          }
+        ]
+      }, {safe:true}, callback)
+    })
+    
+  }
 
   return supplier;
 }

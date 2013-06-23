@@ -31,7 +31,7 @@ describe('diggerdb', function(){
 
 	it('should reset the database with a reset option given', function(done){
 
-		this.timeout(1000);
+		this.timeout(2000);
 
 		var db = diggerdb({
 			collection:'test',
@@ -96,6 +96,8 @@ describe('diggerdb', function(){
 
 	it('should insert and find test data', function(done){
 		
+		this.timeout(2000);
+
 		var data = require(__dirname + '/fixtures/data').simplexml;
 		var datac = digger.container(data);
 
@@ -124,6 +126,8 @@ describe('diggerdb', function(){
 
 	it('should insert and find big test data', function(done){
 		
+		this.timeout(2000);
+
 		var data = require(__dirname + '/fixtures/data').citiesxml;
 		var datac = digger.container(data);
 
@@ -146,6 +150,8 @@ describe('diggerdb', function(){
 
 	it('should save', function(done){
 		
+		this.timeout(2000);
+
 		var data = require(__dirname + '/fixtures/data').citiesxml;
 		var datac = digger.container(data);
 
@@ -182,6 +188,8 @@ describe('diggerdb', function(){
 
 	it('should remove', function(done){
 		
+		this.timeout(2000);
+
 		var data = require(__dirname + '/fixtures/data').citiesxml;
 		var datac = digger.container(data);
 
@@ -218,6 +226,8 @@ describe('diggerdb', function(){
 
 	it('should load from within an already loaded container and apply the limit', function(done){
 		
+		this.timeout(2000);
+
 		var data = require(__dirname + '/fixtures/data').citiesxml;
 		var datac = digger.container(data);
 
@@ -252,6 +262,8 @@ describe('diggerdb', function(){
 
 	it('should load children based on the tree modifier', function(done){
 		
+		this.timeout(2000);
+
 		var data = require(__dirname + '/fixtures/data').citiesxml;
 		var datac = digger.container(data);
 
@@ -284,6 +296,8 @@ describe('diggerdb', function(){
 
 	it('should provision into a collection based on the path', function(done){
 		
+		this.timeout(2000);
+
 		var data = require(__dirname + '/fixtures/data').citiesxml;
 		var datac = digger.container(data);
 
@@ -335,6 +349,8 @@ describe('diggerdb', function(){
 	})
 
 	it('should provision into a database and collection based on the path', function(done){
+		
+		this.timeout(2000);
 		
 		var data = require(__dirname + '/fixtures/data').citiesxml;
 		var datac = digger.container(data);
