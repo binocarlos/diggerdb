@@ -117,9 +117,12 @@ function factory(options){
   supplier._select = function(req, mongoquery, callback){
     collection_factory(req, function(error, collection){
       if(error || !collection){
+
         callback(error || 'no collection found');
         return;
       }
+      console.log('-------------------------------------------');
+      console.dir(mongoquery.query);
       var cursor = collection.find(mongoquery.query, mongoquery.fields, mongoquery.options);
       cursor.toArray(callback);
     })
