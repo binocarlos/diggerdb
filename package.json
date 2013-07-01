@@ -1,6 +1,6 @@
 {
   "name": "diggerdb",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "MongoDB tree database for digger.io",
   "main": "src/index.js",
   "scripts": {
@@ -12,7 +12,7 @@
   },
   "keywords": [],
   "dependencies": {
-    "digger.io": "*",
+    "digger.io": "~0.0.10",
     "mongodb": "*",
     "async": "*",
     "lodash": "~1.2.1"
