@@ -123,14 +123,29 @@ function factory(options){
       }
 
       var cursor = collection.find(mongoquery.query, mongoquery.fields, mongoquery.options);
-      cursor.toArray(function(error, results){
+
+      /*
+      
+        if we are in count mode all we want is a count number
+
+        otherwise we want the array of results
+        
+      */
+      var results_method = mongoquery.countermode ? 'count' : 'toArray';
+
+      cursor[results_method].apply(cursor, [function(error, results){
         if(error){
           callback(error);
         }
         else{
+          if(mongoquery.countermode){
+            results = [{
+              count:results
+            }]
+          }
           callback(null, results);
         }
-      });
+      }])
     })
     
   }

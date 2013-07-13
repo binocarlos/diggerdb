@@ -6,10 +6,10 @@ var async = require('async');
 var fs = require('fs');
 var DB = require('../src/db');
 
-describe('diggerdb:limit', function(){
+describe('diggerdb:count', function(){
 
 
-	it('should apply the limit', function(done){
+	it('should return the count', function(done){
 		
 		this.timeout(2000);
 
@@ -26,8 +26,8 @@ describe('diggerdb:limit', function(){
 		supplychain.append(datac).ship(function(){
 			var container = digger.supplychain(db);
 
-			container('city:limit(3)').ship(function(results){
-				results.count().should.equal(3);
+			container('city:count').ship(function(results){
+				results.attr('count').should.equal(8);
 				done();
 			})	
 		})
