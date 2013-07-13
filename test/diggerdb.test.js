@@ -224,7 +224,7 @@ describe('diggerdb', function(){
 
 	})
 
-	it('should load from within an already loaded container and apply the limit', function(done){
+	it('should load from within an already loaded container', function(done){
 		
 		this.timeout(2000);
 
@@ -246,11 +246,9 @@ describe('diggerdb', function(){
 			function(cities, next){
 
 				digger.merge([
-					cities('area.poor'),
-					container('city:limit(2)')
+					cities('area.poor')
 				], function(error, results){
 					results[0].count().should.equal(3);
-					results[1].count().should.equal(2);
 					done();
 				})
 
@@ -259,6 +257,7 @@ describe('diggerdb', function(){
 		])
 
 	})
+
 
 	it('should load children based on the tree modifier', function(done){
 		

@@ -121,8 +121,16 @@ function factory(options){
         callback(error || 'no collection found');
         return;
       }
+
       var cursor = collection.find(mongoquery.query, mongoquery.fields, mongoquery.options);
-      cursor.toArray(callback);
+      cursor.toArray(function(error, results){
+        if(error){
+          callback(error);
+        }
+        else{
+          callback(null, results);
+        }
+      });
     })
     
   }
