@@ -150,6 +150,26 @@ function factory(options){
     
   }
   
+  /*
+  
+    I like the name of this function - tis gangster
+
+    mongo do not like fields with dollars
+    
+  */
+  function strip_dollars(obj){
+    _.each(obj, function(val, field){
+      if(('' + field).charAt(0)==='$'){
+        delete(obj[field]);
+      }
+      else{
+        if(_.isObject(val)){
+          strip_dollars(val);
+        }
+      }
+    })  
+  }
+
   supplier._insert = function(req, data, callback){
     collection_factory(req, function(error, collection){
       if(error || !collection){
@@ -160,6 +180,8 @@ function factory(options){
       delete(raw._children);
       delete(raw._data);
 
+      strip_dollars(raw);
+      
       collection.insert(raw, {safe:true}, callback);
     })
     
