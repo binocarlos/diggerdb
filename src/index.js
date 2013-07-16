@@ -149,28 +149,9 @@ function factory(options){
     })
     
   }
-  
-  /*
-  
-    I like the name of this function - tis gangster
-
-    mongo do not like fields with dollars
-    
-  */
-  function strip_dollars(obj){
-    _.each(obj, function(val, field){
-      if(('' + field).charAt(0)==='$'){
-        delete(obj[field]);
-      }
-      else{
-        if(_.isObject(val)){
-          strip_dollars(val);
-        }
-      }
-    })  
-  }
 
   supplier._insert = function(req, data, callback){
+    var self = this;
     collection_factory(req, function(error, collection){
       if(error || !collection){
         callback(error || 'no collection found');
@@ -180,7 +161,7 @@ function factory(options){
       delete(raw._children);
       delete(raw._data);
 
-      strip_dollars(raw);
+      self.strip_dollars(raw);
       
       collection.insert(raw, {safe:true}, callback);
     })
@@ -188,6 +169,7 @@ function factory(options){
   }
 
   supplier._update = function(req, data, callback){
+    var self = this;
     collection_factory(req, function(error, collection){
       if(error || !collection){
         callback(error || 'no collection found');
@@ -196,6 +178,8 @@ function factory(options){
       var raw = _.clone(data);
       delete(raw._children);
       delete(raw._data);
+
+      self.strip_dollars(raw);
 
       collection.update({
         '_digger.diggerid':data._digger.diggerid
