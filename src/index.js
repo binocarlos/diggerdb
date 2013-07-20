@@ -122,8 +122,13 @@ function factory(options){
         return;
       }
 
+      console.log('-------------------------------------------');
+      console.log('-------------------------------------------');
+      console.log(JSON.stringify(mongoquery, null, 4));
+
       var cursor = collection.find(mongoquery.query, mongoquery.fields, mongoquery.options);
 
+      
       /*
       
         if we are in count mode all we want is a count number
@@ -134,6 +139,10 @@ function factory(options){
       var results_method = mongoquery.countermode ? 'count' : 'toArray';
 
       cursor[results_method].apply(cursor, [function(error, results){
+        console.log('-------------------------------------------');
+        console.dir(error);
+        console.dir(results.length);
+        console.log('-------------------------------------------');
         if(error){
           callback(error);
         }
