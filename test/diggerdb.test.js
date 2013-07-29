@@ -1,6 +1,8 @@
 
 var digger = require('digger.io');
+var Bridge = require('digger-bridge');
 var diggerdb = require('../src');
+var XML = require('digger-xml');
 var data = require('./fixtures/data');
 var async = require('async');
 var fs = require('fs');
@@ -38,7 +40,7 @@ describe('diggerdb', function(){
 			reset:true
 		})
 
-		var supplychain1 = digger.supplychain(db);
+		var supplychain1 = Bridge(db).connect();
 
 		function getdata(){
 			var data = [{
@@ -52,7 +54,7 @@ describe('diggerdb', function(){
 				height:8378
 			}]
 
-			var container = digger.create(data);
+			var container = Bridge.container(data);
 			container.tag('color');
 
 			return container;
@@ -65,7 +67,7 @@ describe('diggerdb', function(){
 				reset:true
 			})
 
-			var supplychain2 = digger.supplychain(db2);
+			var supplychain2 = Bridge(db2).connect();
 
 			supplychain2.append(getdata()).ship(function(){
 
@@ -73,7 +75,7 @@ describe('diggerdb', function(){
 					collection:'test'
 				})
 
-				var supplychain3 = digger.supplychain(db3);
+				var supplychain3 = Bridge(db3).connect();
 
 				supplychain3('color').ship(function(colors){
 					colors.count().should.equal(3);
@@ -98,17 +100,17 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').simplexml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').simplexml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			collection:'test',
 			reset:true
 		})
 
-		var container = digger.supplychain(db);
+		var container = Bridge(db).connect();
 
-		var simpleadd = digger.create('simple', {
+		var simpleadd = Bridge.container('simple', {
 			name:'test',
 			height:34
 		})
@@ -128,15 +130,15 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			collection:'test',
 			reset:true
 		})
 
-		var container = digger.supplychain(db);
+		var container = Bridge(db).connect();
 
 		container.append(datac).ship(function(){
 
@@ -152,23 +154,20 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			collection:'test',
 			reset:true
 		})
 
-		var container = digger.supplychain(db);
+		var supplychain = Bridge(db);
 
-		digger.pipe([
-			container.append(datac),
+		var container = supplychain.connect();
 
-			container('city.south'),
-
-			function(cities, next){
-
+		container.append(datac).ship(function(){
+			container('city.south').ship(function(cities){
 				cities.count().should.equal(3);
 
 				cities.eq(0).attr('testme', 'hello').save().ship(function(){
@@ -179,10 +178,9 @@ describe('diggerdb', function(){
 						done();
 					})
 				})
-				
-			}
+			})
+		})
 
-		])
 
 	})
 
@@ -190,23 +188,18 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			collection:'test',
 			reset:true
 		})
 
-		var container = digger.supplychain(db);
+		var container = Bridge(db).connect();
 
-		digger.pipe([
-			container.append(datac),
-
-			container('city.south'),
-
-			function(cities, next){
-
+		container.append(datac).ship(function(){
+			container('city.south').ship(function(cities){
 				cities.count().should.equal(3);
 
 				cities.eq(0).remove().ship(function(){
@@ -217,10 +210,9 @@ describe('diggerdb', function(){
 						done();
 					})
 				})
-				
-			}
-
-		])
+			})
+		})
+		
 
 	})
 
@@ -228,33 +220,28 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			collection:'test',
 			reset:true
 		})
 
-		var container = digger.supplychain(db);
+		var container = Bridge(db).connect();
 
-		digger.pipe([
-			container.append(datac),
+		container.append(datac).ship(function(){
 
-			container('city.south'),
+			container('city.south').ship(function(cities){
 
-			function(cities, next){
-
-				digger.merge([
-					cities('area.poor')
-				], function(error, results){
-					results[0].count().should.equal(3);
+				cities('area.poor').ship(function(results){
+					results.count().should.equal(3);
 					done();
 				})
 
-			}
+			})
 
-		])
+		})
 
 	})
 
@@ -263,33 +250,27 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			collection:'test',
 			reset:true
 		})
 
-		var container = digger.supplychain(db);
+		var container = Bridge(db).connect();
 
-		digger.pipe([
-			container.append(datac),
+		container.append(datac).ship(function(){
 
-			container('city.south:tree'),
-
-			function(cities, next){
+			container('city.south:tree').ship(function(cities){
 
 				cities.count().should.equal(3);
 				cities.find('area').count().should.equal(8);
-
-
-
 				done();
 
-			}
+			})
 
-		])
+		})
 
 	})
 
@@ -297,8 +278,8 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			provider:'collection',
@@ -306,14 +287,11 @@ describe('diggerdb', function(){
 			reset:true
 		})
 
-		var container = digger.supplychain('/mongo/testprovider', db);
+		var container = Bridge(db).connect('/mongo/testprovider');
 
-		digger.pipe([
-			container.append(datac),
+		container.append(datac).ship(function(){
 
-			container('city.south:tree'),
-
-			function(cities, next){
+			container('city.south:tree').ship(function(cities){
 
 				cities.count().should.equal(3);
 				cities.find('area').count().should.equal(8);
@@ -341,9 +319,9 @@ describe('diggerdb', function(){
 					})
 				})
 
-			}
+			})
 
-		])
+		})
 
 	})
 
@@ -351,8 +329,8 @@ describe('diggerdb', function(){
 		
 		this.timeout(2000);
 		
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			provider:'database',
@@ -360,14 +338,11 @@ describe('diggerdb', function(){
 			reset:true
 		})
 
-		var container = digger.supplychain('/mongo/testdb/testprovider', db);
+		var container = Bridge(db).connect('/mongo/testdb/testprovider');
 
-		digger.pipe([
-			container.append(datac),
+		container.append(datac).ship(function(){
 
-			container('city.south:tree'),
-
-			function(cities, next){
+			container('city.south:tree').ship(function(cities){
 
 				cities.count().should.equal(3);
 				cities.find('area').count().should.equal(8);
@@ -395,9 +370,9 @@ describe('diggerdb', function(){
 					})
 				})
 
-			}
+			})
 
-		])
+		})
 
 	})
 

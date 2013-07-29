@@ -163,7 +163,7 @@ function factory(options){
       delete(raw._data);
 
       self.strip_dollars(raw);
-      
+
       collection.insert(raw, {safe:true}, callback);
     })
     

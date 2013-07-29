@@ -3,6 +3,8 @@ var digger = require('digger.io');
 var diggerdb = require('../src');
 var data = require('./fixtures/data');
 var async = require('async');
+var XML = require('digger-xml');
+var Bridge = require('digger-bridge');
 var fs = require('fs');
 var DB = require('../src/db');
 
@@ -13,18 +15,18 @@ describe('diggerdb:self', function(){
 		
 		this.timeout(2000);
 
-		var data = require(__dirname + '/fixtures/data').citiesxml;
-		var datac = digger.container(data);
+		var data = XML.parse(require(__dirname + '/fixtures/data').citiesxml);
+		var datac = Bridge.container(data);
 
 		var db = diggerdb({
 			collection:'test',
 			reset:true
 		})
 
-		var supplychain = digger.supplychain(db);
+		var supplychain = Bridge(db).connect();
 
 		supplychain.append(datac).ship(function(){
-			var container = digger.supplychain(db);
+			var container = Bridge(db).connect();
 
 			container('city:limit(1)').ship(function(results){
 				results('self').ship(function(tree){					
