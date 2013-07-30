@@ -12,12 +12,14 @@
   },
   "keywords": [],
   "dependencies": {
-    "digger.io": "~0.0.16",
+    "digger.io": "~0.1.0",
     "mongodb": "*",
     "async": "*",
     "lodash": "~1.2.1"
   },
   "devDependencies": {
+    "digger-xml": "~0.0.1",
+    "digger-bridge": "~0.0.1",
     "grunt": "~0.4.1",
     "grunt-contrib-jshint": "~0.4.1",
     "grunt-mocha-test": "~0.2.2",
